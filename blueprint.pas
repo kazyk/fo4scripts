@@ -11,6 +11,9 @@ var
   ToFile: IInterface;
   PerkProto: IwbMainRecord;
   MagProto: IwbMainRecord;
+  WeaponName: String;
+  WeaponTier: integer;
+  Craftable: Boolean;
 
 // Called before processing
 // You can remove it if script doesn't require initialization code
@@ -76,49 +79,63 @@ end;
 procedure processCo(e: IInterface);
 var
   coId: String;
-  weaponName: String;
   modd: IInterface;
+  perkId: String;
   perk: IInterface;
+  magId: String;
   mag: IInterface;
   co: IInterface;
 begin
-  weaponName := modWeaponName(e);
-  if weaponName = '' then
-    exit;
+  modWeaponName(e);
   
-  if weaponName <> 'NotCraftable' then begin
+  if Craftable then begin
+    if WeaponName = '' then
+      exit;
     modd := LinksTo(ElementByName(e, 'CNAM - Created Object'));
 
     coId := GetElementEditValues(e, 'EDID');
     AddRequiredElementMasters(e, ToFile, False);
 
-    perk := wbCopyElementToFile(PerkProto, ToFile, True, True);
-    SetElementEditValues(perk, 'EDID', IdPrefix + 'Perk_' + coId);
+    perkId := IdPrefix + 'Perk_' + coId;
+    perk := MainRecordByEditorID(GroupBySignature(ToFile, 'PERK'), perkId);
+    if not Assigned(perk) then
+      perk := wbCopyElementToFile(PerkProto, ToFile, True, True);
+    SetElementEditValues(perk, 'EDID', perkId);
     SetElementEditValues(perk, 'FULL', 'Mod Blueprint');
 
-    mag := wbCopyElementToFile(MagProto, ToFile, True, True);
-    SetElementEditValues(mag, 'EDID', IdPrefix + 'PerkMag_' + coId);
-    SetElementEditValues(mag, 'FULL', 'Blueprint: ' + weaponName + ' ' + GetElementEditValues(modd, 'FULL'));
+    magId := IdPrefix + 'PerkMag_' + coId;
+    mag := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), magId);
+    if not Assigned(mag) then
+      mag := wbCopyElementToFile(MagProto, ToFile, True, True);
+    SetElementEditValues(mag, 'EDID', magId);
+    SetElementEditValues(mag, 'FULL', 'Blueprint: ' + WeaponName + ' ' + GetElementEditValues(modd, 'FULL'));
     SetElementEditValues(mag, 'FIMD', '');
     SetEditValue(ElementByName(ElementByName(mag, 'DNAM - DNAM'), 'Perk'), ShortName(perk));
 
-    co := wbCopyElementToFile(e, ToFile, False, True);
+    co := MainRecordByEditorID(GroupBySignature(ToFile, 'COBJ'), coId);
+    if not Assigned(co) then
+      co := wbCopyElementToFile(e, ToFile, False, True);
     addCondition(co, perk);
     addLeveledItem(mag);
   end
   else begin
-    co := wbCopyElementToFile(e, ToFile, False, True);
-    addUnavailable(co);
+    co := MainRecordByEditorID(GroupBySignature(ToFile, 'COBJ'), coId);
+    if not Assigned(co) then
+      co := wbCopyElementToFile(e, ToFile, False, True);
+    addNotCraftable(co);
   end;
 end;
 
-function modWeaponName(e: IInterface): String;
+
+procedure modWeaponName(e: IInterface);
 var
   sl: TStringList;
   n: String;
   slot: String;
 begin
-  Result := '';
+  WeaponName := '';
+  WeaponTier := 0;
+  Craftable := True;
   sl := TStringList.Create;
   try
     sl.Delimiter := '_';
@@ -132,54 +149,54 @@ begin
     n := sl[2];
     slot := sl[3];
     if (n = 'Pipe') or (n = 'PipeGun') then begin
-      Result := 'Pipe Gun';
+      WeaponName := 'Pipe Gun';
     end
     else if n = 'PipeRevolver' then begin
-      Result := 'Pipe Revolver';
+      WeaponName := 'Pipe Revolver';
     end
     else if n = 'PipeBoltAction' then begin
-      Result := 'Pipe Bolt Action';
+      WeaponName := 'Pipe Bolt Action';
     end
     else if n = 'LaserMusket' then begin
-      Result := 'Laser Musket';
+      WeaponName := 'Laser Musket';
     end;
-    if Result <> '' then
+    if WeaponName <> '' then
       exit;
 
     if (slot = 'Receiver') or (slot = 'Barrel') or (slot = 'BarrelShotgun') or (slot = 'BarrelLaser') then begin
-      Result := 'NotCraftable';
+      Craftable := False;
       exit;
     end;
 
     if n = '10mm' then begin
-      Result := '10mm';
+      WeaponName := '10mm';
     end
     else if n = '44' then begin
-      Result := '.44';
+      WeaponName := '.44';
     end
     else if n = 'DoubleBarrelShotgun' then begin
-      Result := 'Shotgun';
+      WeaponName := 'Shotgun';
     end
     else if n = 'HuntingRifle' then begin
-      Result := 'Hunting Rifle';
+      WeaponName := 'Hunting Rifle';
     end
     else if n = 'CombatRifle' then begin
-      Result := 'Combat Rifle';
+      WeaponName := 'Combat Rifle';
     end
     else if n = 'CombatShotgun' then begin
-      Result := 'Combat Shotgun';
+      WeaponName := 'Combat Shotgun';
     end
     else if n = 'InstituteLaserGun' then begin
-      Result := 'Institute';
+      WeaponName := 'Institute';
     end
     else if n = 'LaserGun' then begin
-      Result := 'Laser Gun';
+      WeaponName := 'Laser Gun';
     end
     else if n = 'PlasmaGun' then begin
-      Result := 'Plasma Gun';
+      WeaponName := 'Plasma Gun';
     end
     else if n = 'SubmachineGun' then begin
-      Result := 'Submachine Gun';
+      WeaponName := 'Submachine Gun';
     end;
   finally
     sl.Free;
@@ -190,6 +207,7 @@ procedure addCondition(co: IInterface; perk: IInterface);
 var
   conditions: IInterface;
   condition: IInterface;
+  i: integer;
 begin
   conditions := ElementByName(co, 'Conditions');
   if not Assigned(conditions) then begin
@@ -197,6 +215,11 @@ begin
     condition := ElementByIndex(conditions, 0);
   end
   else begin
+    for i := 0 to Pred(ElementCount(conditions)) do begin
+      condition := ElementByIndex(conditions, i);
+      if GetEditValue(ElementByPath(condition, 'CTDA - CTDA\Perk')) = ShortName(perk) then
+        exit;
+    end;
     condition := ElementAssign(conditions, HighInteger, nil, False);
   end;
   SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Function'), 'HasPerk');
@@ -204,28 +227,34 @@ begin
   SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Comparison Value - Float'), '1.0');
 end;
 
-procedure addUnavailable(co: IInterface);
+procedure addNotCraftable(co: IInterface);
 var
-  unavailable: IInterface;
+  item: IInterface;
   conditions: IInterface;
-  condition: IInterface;
+  components: IInterface;
+  component: IInterface;
+  i: integer;
 begin;
-  unavailable := MainRecordByEditorID(GroupBySignature(ToFile, 'PERK'), 'zk_Perk_NotCraftable');
-  if not Assigned(unavailable) then begin
-    AddMessage('Perk_NotCraftable not found');
+  item := MainRecordByEditorID(GroupBySignature(ToFile, 'MISC'), 'zk_misc_not_craftable');
+  if not Assigned(item) then begin
+    AddMessage('misc_not_craftable not found');
     exit;
   end;
+
   conditions := ElementByName(co, 'Conditions');
-  if not Assigned(conditions) then begin
-    conditions := Add(co, 'Conditions', False);
-    condition := ElementByIndex(conditions, 0);
-  end
-  else begin
-    condition := ElementAssign(conditions, HighInteger, nil, False);
+  if Assigned(conditions) then
+    Remove(conditions);
+  components := ElementByName(co, 'FVPA - Components');
+  if not Assigned(components) then
+    components := Add(co, 'FVPA - Components', False);
+
+  for i := 1 to Pred(ElementCount(components)) do begin
+    component := ElementByIndex(components, 1);
+    Remove(component);
   end;
-  SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Function'), 'HasPerk');
-  SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Perk'), ShortName(unavailable));
-  SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Comparison Value - Float'), '1.0');
+  component := ElementByIndex(components, 0);
+  SetEditValue(ElementByPath(component, 'Component'), ShortName(item));
+  SetEditValue(ElementByPath(component, 'Count'), '1');
 end;
 
 procedure addLeveledItem(mag: IInterface);
@@ -266,6 +295,17 @@ begin
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Reference'), ShortName(mag));
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Level'), '1');
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Count'), '1');
+end;
+
+procedure addMagazine(co: IInterface; edid: String; n: String; tier: integer);
+var
+  mag: IInterface;
+begin
+  mag := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), edid);
+  if not Assigned(mag) then begin
+    mag := wbCopyElementToFile(MagProto, ToFile, True, True);
+  end;
+  SetElementEditValues(mag, 'FULL', n);
 end;
 
 // Called after processing
