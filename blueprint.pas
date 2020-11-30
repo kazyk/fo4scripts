@@ -12,8 +12,9 @@ var
   PerkProto: IwbMainRecord;
   MagProto: IwbMainRecord;
   WeaponName: String;
-  WeaponTier: integer;
+  WeaponLevel: integer;
   Craftable: Boolean;
+  ModTier: integer;
 
 // Called before processing
 // You can remove it if script doesn't require initialization code
@@ -134,7 +135,7 @@ var
   slot: String;
 begin
   WeaponName := '';
-  WeaponTier := 0;
+  WeaponLevel := 1;
   Craftable := True;
   sl := TStringList.Create;
   try
@@ -153,9 +154,11 @@ begin
     end
     else if n = 'PipeRevolver' then begin
       WeaponName := 'Pipe Revolver';
+      WeaponLevel := 6;
     end
     else if n = 'PipeBoltAction' then begin
       WeaponName := 'Pipe Bolt Action';
+      WeaponLevel := 3;
     end
     else if n = 'LaserMusket' then begin
       WeaponName := 'Laser Musket';
@@ -173,30 +176,41 @@ begin
     end
     else if n = '44' then begin
       WeaponName := '.44';
+      WeaponLevel := 22;
     end
     else if n = 'DoubleBarrelShotgun' then begin
       WeaponName := 'Shotgun';
     end
     else if n = 'HuntingRifle' then begin
       WeaponName := 'Hunting Rifle';
+      WeaponLevel := 7;
     end
     else if n = 'CombatRifle' then begin
       WeaponName := 'Combat Rifle';
+      WeaponLevel := 19;
     end
     else if n = 'CombatShotgun' then begin
       WeaponName := 'Combat Shotgun';
+      WeaponLevel := 14;
     end
     else if n = 'InstituteLaserGun' then begin
       WeaponName := 'Institute';
     end
     else if n = 'LaserGun' then begin
       WeaponName := 'Laser Gun';
+      WeaponLevel := 11;
     end
     else if n = 'PlasmaGun' then begin
       WeaponName := 'Plasma Gun';
+      WeaponLevel := 21;
     end
     else if n = 'SubmachineGun' then begin
       WeaponName := 'Submachine Gun';
+      WeaponLevel := 10;
+    end
+    else if n = 'AssultRifle' then begin
+      WeaponName := 'Assult Rifle';
+      WeaponLevel := 28;
     end;
   finally
     sl.Free;
@@ -208,18 +222,37 @@ var
   conditions: IInterface;
   condition: IInterface;
   i: integer;
+  perkId: String;
+  hasPerk: Boolean;
 begin
+  ModTier := 0;
   conditions := ElementByName(co, 'Conditions');
   if not Assigned(conditions) then begin
     conditions := Add(co, 'Conditions', False);
     condition := ElementByIndex(conditions, 0);
   end
   else begin
+    hasPerk := False;
     for i := 0 to Pred(ElementCount(conditions)) do begin
       condition := ElementByIndex(conditions, i);
+      perkId := GetElementEditValues(LinksTo(ElementByPath(condition, 'CTDA - CTDA\Perk')), 'EDID');
+      if (perkId = 'GunNut01') or (perkId = 'Science01') then begin
+        ModTier := ModTier + 1;
+      end
+      else if (perkId = 'GunNut02') or (perkId = 'Science02') then begin
+        ModTier := ModTier + 2;
+      end
+      else if (perkId = 'GunNut03') or (perkId = 'Science03') then begin
+        ModTier := ModTier + 3;
+      end
+      else if (perkId = 'GunNut04') or (perkId = 'Science04') then begin
+        ModTier := ModTier + 4;
+      end;
       if GetEditValue(ElementByPath(condition, 'CTDA - CTDA\Perk')) = ShortName(perk) then
-        exit;
+        hasPerk := True;
     end;
+    if hasPerk then
+      exit;
     condition := ElementAssign(conditions, HighInteger, nil, False);
   end;
   SetEditValue(ElementByPath(condition, 'CTDA - CTDA\Function'), 'HasPerk');
@@ -295,17 +328,7 @@ begin
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Reference'), ShortName(mag));
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Level'), '1');
   SetEditValue(ElementByPath(entry, 'LVLO - Base Data\Count'), '1');
-end;
-
-procedure addMagazine(co: IInterface; edid: String; n: String; tier: integer);
-var
-  mag: IInterface;
-begin
-  mag := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), edid);
-  if not Assigned(mag) then begin
-    mag := wbCopyElementToFile(MagProto, ToFile, True, True);
-  end;
-  SetElementEditValues(mag, 'FULL', n);
+  SetNativeValue(ElementByPath(entry, 'LVLO - Base Data\Chance None'), ModTier * 7);
 end;
 
 // Called after processing
