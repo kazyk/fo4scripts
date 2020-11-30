@@ -85,8 +85,11 @@ var
   perk: IInterface;
   magId: String;
   mag: IInterface;
+  magId2: String;
+  mag2: IInterface;
   co: IInterface;
 begin
+  e := WinningOverride(e);
   modWeaponName(e);
   
   if Craftable then begin
@@ -104,20 +107,32 @@ begin
     SetElementEditValues(perk, 'EDID', perkId);
     SetElementEditValues(perk, 'FULL', 'Mod Blueprint');
 
-    magId := IdPrefix + 'PerkMag_' + coId;
-    mag := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), magId);
-    if not Assigned(mag) then
-      mag := wbCopyElementToFile(MagProto, ToFile, True, True);
-    SetElementEditValues(mag, 'EDID', magId);
-    SetElementEditValues(mag, 'FULL', 'Blueprint: ' + WeaponName + ' ' + GetElementEditValues(modd, 'FULL'));
-    SetElementEditValues(mag, 'FIMD', '');
-    SetEditValue(ElementByName(ElementByName(mag, 'DNAM - DNAM'), 'Perk'), ShortName(perk));
-
     co := MainRecordByEditorID(GroupBySignature(ToFile, 'COBJ'), coId);
     if not Assigned(co) then
       co := wbCopyElementToFile(e, ToFile, False, True);
     addCondition(co, perk);
-    addLeveledItem(mag);
+
+    magId := IdPrefix + 'PerkMag_' + coId;
+    magId2 := IdPrefix + 'PerkMagVendor_' + coId;
+    mag := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), magId);
+    if not Assigned(mag) then
+      mag := wbCopyElementToFile(MagProto, ToFile, True, True);
+    mag2 := MainRecordByEditorID(GroupBySignature(ToFile, 'BOOK'), magId2);
+    if not Assigned(mag2) then
+      mag2 := wbCopyElementToFile(MagProto, ToFile, True, True);
+    SetElementEditValues(mag, 'EDID', magId);
+    SetElementEditValues(mag2, 'EDID', magId2);
+    SetElementEditValues(mag, 'FULL', 'Blueprint: ' + WeaponName + ' ' + GetElementEditValues(modd, 'FULL'));
+    SetElementEditValues(mag2, 'FULL', 'Blueprint: ' + WeaponName + ' ' + GetElementEditValues(modd, 'FULL'));
+    SetElementEditValues(mag, 'FIMD', '');
+    SetElementEditValues(mag2, 'FIMD', '');
+    SetEditValue(ElementByName(ElementByName(mag, 'DNAM - DNAM'), 'Perk'), ShortName(perk));
+    SetEditValue(ElementByName(ElementByName(mag2, 'DNAM - DNAM'), 'Perk'), ShortName(perk));
+    SetNativeValue(ElementByPath(mag, 'DATA - Data\Value'), ModTier * 10);
+    SetNativeValue(ElementByPath(mag2, 'DATA - Data\Value'), ModTier * 100);
+
+    addLeveledItem(mag, '');
+    addLeveledItem(mag2, '_Vendor');
   end
   else begin
     co := MainRecordByEditorID(GroupBySignature(ToFile, 'COBJ'), coId);
@@ -225,7 +240,7 @@ var
   perkId: String;
   hasPerk: Boolean;
 begin
-  ModTier := 0;
+  ModTier := 1;
   conditions := ElementByName(co, 'Conditions');
   if not Assigned(conditions) then begin
     conditions := Add(co, 'Conditions', False);
@@ -290,7 +305,7 @@ begin;
   SetEditValue(ElementByPath(component, 'Count'), '1');
 end;
 
-procedure addLeveledItem(mag: IInterface);
+procedure addLeveledItem(mag: IInterface; suffix: String);
 var 
   weaponName: String;
   sl: TStringList;
@@ -307,7 +322,7 @@ begin
   weaponName := sl[4];
   if weaponName = 'Pipe' then
     weaponName := 'PipeGun';
-  ll := MainRecordByEditorID(GroupBySignature(ToFile, 'LVLI'), 'zk_LL_Blueprint_' + weaponName);
+  ll := MainRecordByEditorID(GroupBySignature(ToFile, 'LVLI'), 'zk_LL_Blueprint_' + weaponName + suffix);
   if not Assigned(ll) then begin
     AddMessage('LeveledItem not found: ' + weaponName);
     exit;
